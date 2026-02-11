@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import SearchBar from './components/SearchBar';
 import ResultsCard from './components/ResultsCard';
+import { getToken } from 'firebase/app-check';
+import { appCheck } from './firebase';
 
 function App() {
   const [results, setResults] = useState(null);
@@ -23,11 +25,29 @@ function App() {
         ? 'https://areyousafe-engine-1001681063314.us-central1.run.app/scan'
         : 'http://localhost:8080/scan';
 
+      let token;
+      if (appCheck) {
+        try {
+          // Get App Check token (forceRefresh = false)
+          const result = await getToken(appCheck, false);
+          token = result.token;
+        } catch (err) {
+          console.error("Failed to get App Check token:", err);
+          // We'll proceed without token, but backend might reject it
+        }
+      }
+
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers['X-Firebase-AppCheck'] = token;
+      }
+
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
         body: JSON.stringify({ url }),
       });
 
