@@ -15,15 +15,14 @@ function App() {
     setResults(null);
 
     try {
-      // In production, pointing to the same origin is safer if served together,
-      // but for local dev we might need the full URL or proxy.
-      // Using relative path assumes the API is served from the same domain (e.g. via Firebase proxy or in prod)
-      // or we can use the full URL if we know it.
-      // For this hybrid setup, let's try the relative path first, falling back to localhost for dev if needed
+      // Dynaminc API URL Logic
+      //Checks if the browser is running locally or on the web
+
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === "127.0.0.1";
 
       const apiUrl = import.meta.env.PROD
-        ? 'https://areyousafe-engine-1001681063314.us-central1.run.app/scan'
-        : 'http://localhost:8080/scan';
+        ? 'http://localhost:8080/scan'
+        : 'https://areyousafe-engine-1001681063314.us-central1.run.app/scan';
 
       let token;
       if (appCheck) {
@@ -50,6 +49,16 @@ function App() {
         headers: headers,
         body: JSON.stringify({ url }),
       });
+
+      // Specyifying Error Handling
+
+      if (response.status === 429) {
+        throw new Error('System Cooling Down: 5 Scans per 10 minutes reached. Please wait.');
+      }
+
+      if (response.status === 401) {
+        throw new Error('Unauthorized: App check verification failed locally.');
+      }
 
       if (!response.ok) {
         throw new Error('Scan failed. Please check the URL and try again.');

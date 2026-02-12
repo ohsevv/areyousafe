@@ -20,26 +20,38 @@ limiter = Limiter(
     default_limits=["200 per day", "50 per hour"]
 )
 
+if not os.environ.get('K_SERVICE'):
+    # Telling firebase admin to accept localhost
+    os.environ['FIREBASE_APP_CHECK_DEBUG_TOKEN'] = 'True'
+    # setting FLASK_ENV for the decorator
+    os.environ['FLASK_ENV'] = 'development'
+    print("Local development: App check Debug")
+
 def require_app_check(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Skip App Check in local debug mode if needed, or better, use debug tokens
-        # For now, we strictly enforce it, but we can allow skipping via env var
-        if os.environ.get('FLASK_ENV') == 'development' and not os.environ.get('FORCE_APP_CHECK'):
-             pass # Optional: Skip check in dev
-        
+
+        is_dev = os.environ.get('FLASK_ENV') == 'development'
+
         app_check_token = request.headers.get("X-Firebase-AppCheck")
-        if not app_check_token:
+
+        #if no token is found and we aren't in dev, block it
+
+        if not app_check_token and not is_dev:
             return jsonify({"error": "Unauthorized (Missing App Check Token)"}), 401
         
-        try:
-            # Verify the token
-            app_check.verify_token(app_check_token)
-        except Exception as e:
-            print(f"App Check verification failed: {e}")
-            return jsonify({"error": "Unauthorized (Invalid App Check Token)"}), 401
-            
+        if app_check_token:
+            try:
+                app_check.verify_token(app_check_token)
+            except Exception as e:
+                if not is_dev:
+                    print(f"App check Verification failed: {e}")
+                    return jsonify({"error": "Unauthrorized (Invalid Token)"}), 401
+                else:
+                    print(f"Dev warning: Token verificaiton failed, but allowing due to dev mode.")
+                
         return f(*args, **kwargs)
+        
     return decorated_function
 
 # Initialize Firebase
